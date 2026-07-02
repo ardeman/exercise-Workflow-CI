@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import mlflow
@@ -16,9 +17,6 @@ TARGET_COLUMN = "churn"
 
 
 def main() -> None:
-    mlflow.set_experiment("Customer Churn CI Retraining")
-    mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
-
     df = pd.read_csv(DATA_PATH)
     x = df.drop(columns=[TARGET_COLUMN])
     y = df[TARGET_COLUMN]
@@ -30,10 +28,20 @@ def main() -> None:
         stratify=y,
     )
 
-    with mlflow.start_run(run_name="ci-random-forest"):
+    project_run_id = os.environ.get("MLFLOW_RUN_ID")
+    if project_run_id:
+        run_context = mlflow.start_run(run_id=project_run_id)
+    else:
+        mlflow.set_experiment("Customer Churn CI Retraining")
+        run_context = mlflow.start_run(run_name="ci-random-forest")
+
+    with run_context:
         model = RandomForestClassifier(n_estimators=100, random_state=42)
         model.fit(x_train, y_train)
         predictions = model.predict(x_test)
+        mlflow.log_param("model_type", "RandomForestClassifier")
+        mlflow.log_param("n_estimators", 100)
+        mlflow.log_param("random_state", 42)
         mlflow.log_metric("test_accuracy", accuracy_score(y_test, predictions))
         mlflow.log_metric("test_precision", precision_score(y_test, predictions, zero_division=0))
         mlflow.log_metric("test_recall", recall_score(y_test, predictions, zero_division=0))
