@@ -57,7 +57,7 @@ jobs:
           print(mlflow.search_runs(order_by=["start_time DESC"], max_results=1).iloc[0]["run_id"])
           PY
           )
-          mlflow models build-docker -m "runs:/$RUN_ID/model" -n customer-churn-sml
+          mlflow models build-docker -m "runs:/$RUN_ID/model" -n exercise-customer-churn-sml
 
       - name: Log in to Docker Hub
         if: ${{ env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != '' }}
@@ -68,8 +68,8 @@ jobs:
 
       - name: Tag Docker Image
         if: ${{ env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != '' }}
-        run: docker tag customer-churn-sml "$DOCKERHUB_USERNAME/customer-churn-sml:latest"
+        run: docker tag exercise-customer-churn-sml "$DOCKERHUB_USERNAME/exercise-customer-churn-sml:latest"
 
       - name: Push Docker Image
         if: ${{ env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != '' }}
-        run: docker push "$DOCKERHUB_USERNAME/customer-churn-sml:latest"
+        run: docker push "$DOCKERHUB_USERNAME/exercise-customer-churn-sml:latest"
