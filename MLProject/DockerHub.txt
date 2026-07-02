@@ -1,0 +1,4 @@
+Docker Hub Image:
+docker.io/ardeman/exercise-customer-churn-sml:latest
+
+Ganti image tag jika nama repository Docker Hub yang dipakai berbeda.

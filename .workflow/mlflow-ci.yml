@@ -1,0 +1,3 @@
+name: mlflow-ci
+
+note: "Mirror dari .github/workflows/mlflow-ci.yml untuk memenuhi struktur tertulis kriteria. GitHub Actions menggunakan file di .github/workflows."
