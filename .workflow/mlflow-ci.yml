@@ -1,3 +1,75 @@
 name: mlflow-ci
 
-note: "Mirror dari .github/workflows/mlflow-ci.yml untuk memenuhi struktur tertulis kriteria. GitHub Actions menggunakan file di .github/workflows."
+on:
+  push:
+    paths:
+      - "MLProject/**"
+      - ".github/workflows/mlflow-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    steps:
+      - name: Run actions/checkout@v4
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12.7
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.7"
+
+      - name: Check Env
+        run: |
+          python --version
+          pwd
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mlflow==2.19.0 pandas==2.2.3 numpy==2.1.3 scikit-learn==1.6.0 joblib==1.4.2
+
+      - name: Run mlflow project
+        run: mlflow run MLProject --env-manager=local
+
+      - name: Get latest MLflow run_id
+        run: |
+          python - <<'PY'
+          import mlflow
+          runs = mlflow.search_runs(order_by=["start_time DESC"], max_results=1)
+          print(runs[["run_id", "status"]].to_string(index=False))
+          PY
+
+      - name: Upload MLflow artifacts to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlflow-runs
+          path: mlruns/
+
+      - name: Build Docker Model
+        if: ${{ env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != '' }}
+        run: |
+          RUN_ID=$(python - <<'PY'
+          import mlflow
+          print(mlflow.search_runs(order_by=["start_time DESC"], max_results=1).iloc[0]["run_id"])
+          PY
+          )
+          mlflow models build-docker -m "runs:/$RUN_ID/model" -n customer-churn-sml
+
+      - name: Log in to Docker Hub
+        if: ${{ env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != '' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ env.DOCKERHUB_TOKEN }}
+
+      - name: Tag Docker Image
+        if: ${{ env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != '' }}
+        run: docker tag customer-churn-sml "$DOCKERHUB_USERNAME/customer-churn-sml:latest"
+
+      - name: Push Docker Image
+        if: ${{ env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != '' }}
+        run: docker push "$DOCKERHUB_USERNAME/customer-churn-sml:latest"
